@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Certificados - Concentradora</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/dist/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; padding-bottom: 90px; }
+        .main-container { display: flex; flex-direction: column; align-items: center; width: 100%; }
+        .header-app { background: #1a2a3a; color: white; padding: 1.5rem 0; margin-bottom: 1.5rem; width: 100%; text-align: center; }
+        .card-nav { cursor: pointer; border: 1px solid #dee2e6; border-radius: 12px; width: 90%; max-width: 600px; margin: 0 auto; background-color: white; transition: all 0.2s ease; display: flex; align-items: center; justify-content: space-between; min-height: 55px; padding: 10px 20px; }
+        .card-nav:active { transform: scale(0.97); background-color: #e9ecef; }
+        .breadcrumb { justify-content: center; background: white; padding: 12px 20px; border-radius: 50px; width: 90%; margin: 0 auto; }
+        .hidden { display: none !important; }
+        .btn-back-float { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; background-color: #0d6efd; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: none; z-index: 2000; }
+        .table-container { width: 95%; max-width: 750px; background: white; border-radius: 15px; overflow: hidden; border: 1px solid #dee2e6; }
+        .table thead { background-color: #1a2a3a; color: white; }
+        .badge { font-size: 0.7rem; padding: 5px 8px; }
+        h3 { text-align: center; margin-bottom: 1.5rem; width: 100%; font-weight: bold; }
+        .link-desplegado { font-size: 0.75rem; word-break: break-all; display: block; margin-top: 5px; color: #0d6efd; text-decoration: underline; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<header class="header-app shadow">
+    <h1 class="fw-bold m-0">Gestión de Certificados</h1>
+</header>
+
+<div class="container-fluid main-container">
+    <nav aria-label="breadcrumb" class="w-100 mb-4">
+        <ol class="breadcrumb shadow-sm">
+            <li class="breadcrumb-item"><a href="#" onclick="mostrarEquipos()" style="text-decoration:none;">Inicio</a></li>
+            <li class="breadcrumb-item active" id="currentStep">Equipos</li>
+        </ol>
+    </nav>
+
+    <div id="vistaEquipos" class="row g-2 w-100 justify-content-center">
+        <script>
+            const categorias = ["Sección A", "Sección B", "Sección C", "Sección D", "Sección E", "Alimentador", "Carro", "CT-136", "CT-136B", "CT-136C", "CT138"];
+            categorias.forEach(cat => {
+                document.write(`<div class="col-12 d-flex justify-content-center"><div class="card card-nav shadow-sm" onclick="mostrarSecciones('${cat}')"><h5>${cat}</h5><i class="bi bi-chevron-right text-muted"></i></div></div>`);
+            });
+        </script>
+    </div>
+
+    <div id="vistaSecciones" class="row g-3 w-100 justify-content-center hidden"></div>
+
+    <div id="vistaCertificados" class="w-100 hidden d-flex flex-column align-items-center">
+        <h3 id="tituloEquipoSelec" class="text-primary"></h3>
+        
+        <button class="btn btn-success mb-3 w-75 fw-bold" onclick="agregarComponente()">
+            <i class="bi bi-plus-circle"></i> Añadir Componente
+        </button>
+
+        <div class="table-container shadow-sm">
+            <input type="file" id="inputArchivoGlobal" class="hidden" onchange="procesarCarga(event)">
+            <table class="table table-hover align-middle mb-0 text-center">
+                <thead>
+                    <tr>
+                        <th style="width: 40%; text-align: left; padding-left: 15px;">Componente</th>
+                        <th>Doc.</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaSectores"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<button id="btnVolver" class="btn-back-float hidden" onclick="retroceder()">
+    <i class="bi bi-arrow-left"></i>
+</button>
+
+<script>
+    const datos = {
+        "Sección A": ["134A", "CHAT 1", "CHAT 2", "CT 140A", "CT 141A", "MP-1000"],
+        "Sección B": ["CHAS 2", "CHAT 3", "CHAT 4", "CT 134B"],
+        "Sección C": ["135C", "CHAS 3", "CHAT 6"],
+        "Sección D": ["135D", "CHAT 7", "CHAT 8"],
+        "Sección E": ["134E", "135E", "CHAS 5", "CHAT 10", "CHAT 9", "CT-134E"],
+        "Alimentador": ["1C", "1D", "2A", "2C", "3B", "1A", "1B", "3D", "4C"],
+        "Carro": ["137", "137A", "Carro tripper"],
+        "CT-136": ["136", "CT-136"],
+        "CT-136B": ["136B"],
+        "CT-136C": ["136C"],
+        "CT138": ["138", "CT-138"]
+    };
+
+    const sectoresPorEquipo = {
+        "134A": [{ nombre: "Polea deflectora culata", tieneCert: false, url: "" }, { nombre: "Polea n°1", tieneCert: false, url: "" }],
+        "CHAT 1": [{ nombre: "Puntos de anclaje: en CHAT 1, 2 y 3", tieneCert: false, url: "" }],
+        "CHAT 2": [{ nombre: "Sector chancado fino SH-2", tieneCert: true, url: "https://www.canva.com/design/DAGdBEqCh5I/oeT2jYNGdPoBp_YjYOtO5g/edit" }],
+        "CT 140A": [{ nombre: "Orejas de izaje CT 140A", tieneCert: false, url: "" }],
+        "CT 141A": [{ nombre: "Líquidos penetrantes a puntos de anclaje CT 141A", tieneCert: false, url: "" }],
+        "MP-1000": [{ nombre: "Puntos de anclaje en: mp-1000 y CH 2 y 3", tieneCert: false, url: "" }],
+        "1C": [{ nombre: "Intersecciones de alimentador", tieneCert: false, url: "" }],
+        "1D": [{ nombre: "Intersecciones de alimentadores", tieneCert: false, url: "" }],
+        "2A": [{ nombre: "Intersecciones de alimentador", tieneCert: false, url: "" }],
+        "2C": [{ nombre: "Intersecciones de alimentador", tieneCert: false, url: "" }],
+        "3B": [{ nombre: "Intersecciones de alimentadores", tieneCert: false, url: "" }],
+        "1A": [{ nombre: "Intersecciones de alimentador", tieneCert: false, url: "" }],
+        "1B": [{ nombre: "Intersecciones de alimentadores", tieneCert: false, url: "" }],
+        "3D": [{ nombre: "Intersecciones de alimentadores", tieneCert: false, url: "" }],
+        "4C": [{ nombre: "Orejas de izaje excitador", tieneCert: false, url: "" }],
+        "CHAS 2": [{ nombre: "Puntos de anclaje chas 2", tieneCert: false, url: "" }],
+        "CHAT 3": [{ nombre: "Sector chancado fino SH-3", tieneCert: true, url: "https://www.canva.com/design/DAGdBOiIQEw/04y2kJwCTKZatlH0nFAO8w/edit" }],
+        "CHAT 4": [{ nombre: "Líquidos penetrantes a puntos de anclaje CHAT 4 Y CH 2 Y 3", tieneCert: false, url: "" }],
+        "CT 134B": [{ nombre: "Puntos de anclajes en sector central CT 134B", tieneCert: false, url: "" }],
+        "135C": [{ nombre: "Polea culata", tieneCert: false, url: "" }],
+        "CHAS 3": [{ nombre: "Cáncamos de anclaje CHAS 3", tieneCert: false, url: "" }],
+        "CHAT 6": [{ nombre: "Chancador fino sh-6", tieneCert: true, url: "https://www.canva.com/design/DAGdAwYPEpQ/NLTagyi0iru5A6t0xBMZaQ/edit" }],
+        "137": [{ nombre: "Estructura inferior del carro tripper CT-137", tieneCert: false, url: "" }],
+        "137A": [{ nombre: "Orejas de izaje polea n° 9", tieneCert: false, url: "" }, { nombre: "Orejas de izajes en polea posicion y y en viga", tieneCert: false, url: "" }],
+        "Carro tripper": [{ nombre: "Carro tripper", tieneCert: false, url: "" }],
+        "136": [{ nombre: "Polea de cola sector 2rio y 3rio", tieneCert: false, url: "" }],
+        "CT-136": [{ nombre: "Orejas de izaje en CT 136", tieneCert: false, url: "" }],
+        "136B": [{ nombre: "Estructura 136B", tieneCert: false, url: "" }],
+        "136C": [{ nombre: "Orejas izaje: carro tensor izq/der, polea n°6 izq/der", tieneCert: false, url: "" }, { nombre: "Estructura y polea CT 136C", tieneCert: false, url: "" }],
+        "138": [{ nombre: "Cajón de descarga y estructura CT", tieneCert: false, url: "" }],
+        "CT-138": [{ nombre: "Zona polea culata", tieneCert: false, url: "" }],
+        "135D": [{ nombre: "Polea deflectora culata", tieneCert: false, url: "" }],
+        "CHAT 7": [{ nombre: "Orejas de anclajes en estructura CHAT7", tieneCert: true, url: "https://www.canva.com/design/DAGdBeHXUJQ/kbtKzNf_VvybNw4Hnk_YvA/edit" }],
+        "CHAT 8": [{ nombre: "Estructura de CHAT 8", tieneCert: false, url: "" }],
+        "134E": [{ nombre: "Estructura correa: Lado izq/der superior e inferior", tieneCert: false, url: "" }],
+        "135E": [{ nombre: "Estructura 135E", tieneCert: false, url: "" }],
+        "CHAS 5": [{ nombre: "En estructura CS-5", tieneCert: false, url: "" }],
+        "CHAT 10": [{ nombre: "Orejas de anclaje CHAT 10", tieneCert: false, url: "" }],
+        "CHAT 9": [{ nombre: "Chute descarga fino", tieneCert: false, url: "" }],
+        "CT-134E": [{ nombre: "Izaje en polea culata", tieneCert: false, url: "" }]
+    };
+
+    let pantallaActual = "equipos";
+    let seccionActual = "";
+    let equipoSeleccionadoId = "";
+    let sectorIndiceAEditar = -1;
+
+    function actualizarBotonVolver() {
+        const btn = document.getElementById('btnVolver');
+        pantallaActual === "equipos" ? btn.classList.add('hidden') : btn.classList.remove('hidden');
+    }
+
+    function retroceder() {
+        if (pantallaActual === "certificados") mostrarSecciones(seccionActual);
+        else if (pantallaActual === "secciones") mostrarEquipos();
+    }
+
+    function mostrarEquipos() {
+        pantallaActual = "equipos";
+        document.getElementById('vistaEquipos').classList.remove('hidden');
+        document.getElementById('vistaSecciones').classList.add('hidden');
+        document.getElementById('vistaCertificados').classList.add('hidden');
+        document.getElementById('currentStep').innerText = "Equipos";
+        actualizarBotonVolver();
+    }
+
+    function mostrarSecciones(nombreSeccion) {
+        pantallaActual = "secciones";
+        seccionActual = nombreSeccion;
+        document.getElementById('vistaEquipos').classList.add('hidden');
+        document.getElementById('vistaCertificados').classList.add('hidden');
+        const vista = document.getElementById('vistaSecciones');
+        vista.classList.remove('hidden');
+        document.getElementById('currentStep').innerText = nombreSeccion;
+        let html = `<h3 class="text-primary">${nombreSeccion}</h3>`;
+        datos[nombreSeccion].forEach(equipo => {
+            html += `<div class="col-12 d-flex justify-content-center"><div class="card card-nav shadow-sm" onclick="mostrarSectores('${equipo}')"><h5>${equipo}</h5><i class="bi bi-chevron-right text-muted"></i></div></div>`;
+        });
+        vista.innerHTML = html;
+        actualizarBotonVolver();
+    }
+
+    function mostrarSectores(idEquipo) {
+        pantallaActual = "certificados";
+        equipoSeleccionadoId = idEquipo;
+        document.getElementById('vistaSecciones').classList.add('hidden');
+        const vista = document.getElementById('vistaCertificados');
+        vista.classList.remove('hidden');
+        document.getElementById('tituloEquipoSelec').innerText = idEquipo;
+        renderizarTabla();
+        actualizarBotonVolver();
+    }
+
+    function renderizarTabla() {
+        let sectores = sectoresPorEquipo[equipoSeleccionadoId] || [];
+        let html = "";
+        sectores.forEach((s, index) => {
+            html += `<tr>
+                <td class="fw-bold" style="font-size: 0.8rem; text-align: left; padding-left: 15px;">
+                    ${s.nombre}
+                    <div id="contenedorLink-${index}" class="hidden">
+                        <a href="${s.url}" target="_blank" class="link-desplegado">Ver enlace externo <i class="bi bi-box-arrow-up-right"></i></a>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-sm ${s.tieneCert ? 'btn-outline-primary' : 'btn-outline-secondary disabled'}" 
+                            onclick="mostrarLinkEnTabla(${index})">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                    </button>
+                </td>
+                <td>
+                    <span class="badge ${s.tieneCert ? 'bg-success' : 'bg-danger'}">
+                        ${s.tieneCert ? 'Vigente' : 'No Vigente'}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="iniciarCarga(${index})">
+                        Editar
+                    </button>
+                </td>
+            </tr>`;
+        });
+        document.getElementById('tablaSectores').innerHTML = html || "<tr><td colspan='4'>No hay datos registrados.</td></tr>";
+    }
+
+    function mostrarLinkEnTabla(index) {
+        const contenedor = document.getElementById(`contenedorLink-${index}`);
+        if (contenedor) {
+            contenedor.classList.toggle('hidden');
+        }
+    }
+
+    function agregarComponente() {
+        const nombreNuevo = prompt("Nombre del nuevo componente:");
+        if (nombreNuevo) {
+            if (!sectoresPorEquipo[equipoSeleccionadoId]) sectoresPorEquipo[equipoSeleccionadoId] = [];
+            sectoresPorEquipo[equipoSeleccionadoId].push({ nombre: nombreNuevo.trim(), tieneCert: false, url: "" });
+            renderizarTabla();
+        }
+    }
+
+    function iniciarCarga(index) {
+        sectorIndiceAEditar = index;
+        document.getElementById('inputArchivoGlobal').click();
+    }
+
+    function procesarCarga(event) {
+        if (event.target.files.length > 0 && sectorIndiceAEditar !== -1) {
+            sectoresPorEquipo[equipoSeleccionadoId][sectorIndiceAEditar].tieneCert = true;
+            sectoresPorEquipo[equipoSeleccionadoId][sectorIndiceAEditar].url = URL.createObjectURL(event.target.files[0]);
+            renderizarTabla();
+            event.target.value = '';
+            sectorIndiceAEditar = -1;
+        }
+    }
+</script>
+</body>
+
+</html>
